@@ -5,11 +5,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Sparkles } from "lucide-react";
 
-type Props = {
-  mode: string;
-};
-
-const AIGenerate = ({ mode }: Props) => {
+const AIGenerate = () => {
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
@@ -51,10 +47,10 @@ const AIGenerate = ({ mode }: Props) => {
       <div className="mb-6">
         <h2 className="font-semibold text-xl mb-2 flex items-center gap-2">
           <Sparkles className="w-5 h-5 text-primary" />
-          AI Image Generator
+          Xylos Image Generator
         </h2>
-        <p className="text-sm text-muted-foreground capitalize">
-          Generate images, logos, and avatars for {mode}
+        <p className="text-sm text-muted-foreground">
+          Generate images, logos, and avatars with AI
         </p>
       </div>
 

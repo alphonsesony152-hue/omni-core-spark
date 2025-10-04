@@ -11,11 +11,7 @@ type Message = {
   content: string;
 };
 
-type Props = {
-  mode: string;
-};
-
-const AIChat = ({ mode }: Props) => {
+const AIChat = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -24,9 +20,9 @@ const AIChat = ({ mode }: Props) => {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Create new conversation when mode changes
+    // Create new conversation on mount
     createConversation();
-  }, [mode]);
+  }, []);
 
   useEffect(() => {
     scrollToBottom();
@@ -45,7 +41,7 @@ const AIChat = ({ mode }: Props) => {
 
       const { data, error } = await supabase
         .from('conversations')
-        .insert({ user_id: user.id, mode })
+        .insert({ user_id: user.id, mode: 'general' })
         .select()
         .single();
 
@@ -154,8 +150,8 @@ const AIChat = ({ mode }: Props) => {
   return (
     <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-xl h-[600px] flex flex-col">
       <div className="p-4 border-b border-border bg-muted/30">
-        <h2 className="font-semibold">AI Chat Assistant</h2>
-        <p className="text-sm text-muted-foreground capitalize">{mode} mode</p>
+        <h2 className="font-semibold">Xylos Chat</h2>
+        <p className="text-sm text-muted-foreground">Your AI Assistant</p>
       </div>
 
       <ScrollArea ref={scrollRef} className="flex-1 p-4">
