@@ -4,7 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
-import { Send, Loader2 } from "lucide-react";
+import { Send, Loader2, Plus, Camera, Image as ImageIcon, Mic, MicOff } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 type Message = {
   role: 'user' | 'assistant';
@@ -16,7 +22,11 @@ const AIChat = () => {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -50,6 +60,56 @@ const AIChat = () => {
       setMessages([]);
     } catch (error: any) {
       console.error('Error creating conversation:', error);
+    }
+  };
+
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      toast({
+        title: "Image selected",
+        description: "Image attachments will be supported soon!",
+      });
+    }
+  };
+
+  const startVoiceRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      const audioChunks: Blob[] = [];
+
+      recorder.ondataavailable = (event) => {
+        audioChunks.push(event.data);
+      };
+
+      recorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+        // Convert to text (simplified - you'd use a speech-to-text service)
+        toast({
+          title: "Voice recorded",
+          description: "Voice transcription will be added soon!",
+        });
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      recorder.start();
+      setMediaRecorder(recorder);
+      setIsRecording(true);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Could not access microphone",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const stopVoiceRecording = () => {
+    if (mediaRecorder && isRecording) {
+      mediaRecorder.stop();
+      setIsRecording(false);
+      setMediaRecorder(null);
     }
   };
 
@@ -195,6 +255,50 @@ const AIChat = () => {
           }}
           className="flex gap-2"
         >
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button type="button" variant="outline" size="icon">
+                <Plus className="w-4 h-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem onClick={() => cameraInputRef.current?.click()}>
+                <Camera className="w-4 h-4 mr-2" />
+                Camera
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => fileInputRef.current?.click()}>
+                <ImageIcon className="w-4 h-4 mr-2" />
+                Gallery
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <input
+            ref={cameraInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onChange={handleImageUpload}
+            className="hidden"
+          />
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleImageUpload}
+            className="hidden"
+          />
+
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            onClick={isRecording ? stopVoiceRecording : startVoiceRecording}
+            className={isRecording ? "bg-destructive text-destructive-foreground" : ""}
+          >
+            {isRecording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+          </Button>
+
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
