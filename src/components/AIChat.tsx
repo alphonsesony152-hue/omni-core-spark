@@ -51,7 +51,7 @@ const AIChat = () => {
 
       const { data, error } = await supabase
         .from('conversations')
-        .insert({ user_id: user.id, mode: 'general' })
+        .insert({ user_id: user.id, mode: 'personal' })
         .select()
         .single();
 
