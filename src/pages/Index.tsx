@@ -19,7 +19,7 @@ const Index = () => {
           </h1>
           
           <p className="text-xl md:text-2xl text-muted-foreground max-w-2xl mx-auto">
-            One intelligent platform for personal growth, career advancement, team collaboration, and family management. Powered by cutting-edge AI.
+            One intelligent platform for personal growth, career advancement, team collaboration, and family management. Powered by APPU'S Colabration.
           </p>
 
           <div className="flex justify-center pt-8">
