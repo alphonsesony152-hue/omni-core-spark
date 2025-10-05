@@ -1,15 +1,82 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Sparkles } from "lucide-react";
+import { Loader2, Sparkles, Plus, Camera, Image as ImageIcon, Mic, MicOff } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const AIGenerate = () => {
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
+  const [style, setStyle] = useState<string>("realistic");
+  const [isRecording, setIsRecording] = useState(false);
+  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      toast({
+        title: "Image selected",
+        description: "Image reference will be supported soon!",
+      });
+    }
+  };
+
+  const startVoiceRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      const audioChunks: Blob[] = [];
+
+      recorder.ondataavailable = (event) => {
+        audioChunks.push(event.data);
+      };
+
+      recorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+        toast({
+          title: "Voice recorded",
+          description: "Voice-to-text will be added soon!",
+        });
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      recorder.start();
+      setMediaRecorder(recorder);
+      setIsRecording(true);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Could not access microphone",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const stopVoiceRecording = () => {
+    if (mediaRecorder && isRecording) {
+      mediaRecorder.stop();
+      setIsRecording(false);
+      setMediaRecorder(null);
+    }
+  };
 
   const generateImage = async () => {
     if (!prompt.trim()) return;
@@ -18,8 +85,11 @@ const AIGenerate = () => {
     setGeneratedImage(null);
 
     try {
+      const stylePrefix = style !== "realistic" ? `${style} style: ` : "";
+      const fullPrompt = `${stylePrefix}${prompt}`;
+      
       const { data, error } = await supabase.functions.invoke('ai-generate-image', {
-        body: { prompt },
+        body: { prompt: fullPrompt },
       });
 
       if (error) throw error;
@@ -56,16 +126,94 @@ const AIGenerate = () => {
 
       <div className="space-y-4">
         <div>
+          <label htmlFor="style" className="block text-sm font-medium mb-2">
+            Art Style
+          </label>
+          <Select value={style} onValueChange={setStyle} disabled={loading}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select style" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="realistic">Realistic/Photorealistic</SelectItem>
+              <SelectItem value="cartoon">Cartoon Animation</SelectItem>
+              <SelectItem value="oil painting">Oil Painting</SelectItem>
+              <SelectItem value="watercolor">Watercolor</SelectItem>
+              <SelectItem value="sketch">Sketch/Pencil Drawing</SelectItem>
+              <SelectItem value="pixel art">Pixel Art</SelectItem>
+              <SelectItem value="pop art">Pop Art</SelectItem>
+              <SelectItem value="3D render">3D Render</SelectItem>
+              <SelectItem value="minimalist">Minimalist</SelectItem>
+              <SelectItem value="concept art">Concept Art</SelectItem>
+              <SelectItem value="line art">Line Art</SelectItem>
+              <SelectItem value="vector art">Vector Art</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div>
           <label htmlFor="prompt" className="block text-sm font-medium mb-2">
             Describe what you want to generate
           </label>
-          <Input
-            id="prompt"
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            placeholder="A professional logo with modern design..."
-            disabled={loading}
-          />
+          <div className="flex gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button type="button" variant="outline" size="icon" disabled={loading}>
+                  <Plus className="w-4 h-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onClick={() => cameraInputRef.current?.click()}>
+                  <Camera className="w-4 h-4 mr-2" />
+                  Camera
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => fileInputRef.current?.click()}>
+                  <ImageIcon className="w-4 h-4 mr-2" />
+                  Gallery
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <input
+              ref={cameraInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={handleImageUpload}
+              className="hidden"
+            />
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleImageUpload}
+              className="hidden"
+            />
+
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              onClick={isRecording ? stopVoiceRecording : startVoiceRecording}
+              disabled={loading}
+              className={isRecording ? "bg-destructive text-destructive-foreground" : ""}
+            >
+              {isRecording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+            </Button>
+
+            <Input
+              id="prompt"
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              placeholder="A professional logo with modern design..."
+              disabled={loading}
+              className="flex-1"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !loading && prompt.trim()) {
+                  generateImage();
+                }
+              }}
+            />
+          </div>
         </div>
 
         <Button
