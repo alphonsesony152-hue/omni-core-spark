@@ -22,14 +22,7 @@ const Index = () => {
             One intelligent platform for personal growth, career advancement, team collaboration, and family management. Powered by cutting-edge AI.
           </p>
 
-          <div className="flex flex-col sm:flex-row gap-4 justify-center pt-8">
-            <Button
-              size="lg"
-              onClick={() => navigate("/signup")}
-              className="bg-gradient-to-r from-primary to-secondary hover:opacity-90 text-lg px-8 py-6 h-auto"
-            >
-              Start Free Trial
-            </Button>
+          <div className="flex justify-center pt-8">
             <Button
               size="lg"
               variant="outline"
