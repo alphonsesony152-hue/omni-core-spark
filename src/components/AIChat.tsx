@@ -176,6 +176,19 @@ const AIChat = ({ conversationId: propsConversationId }: AIChatProps) => {
         content: messageToSend,
       });
 
+      // Prepare messages with image if attached
+      const messagesToSend = [...messages, userMessage];
+      if (imageToSend) {
+        // Replace the last message content with multimodal format
+        messagesToSend[messagesToSend.length - 1] = {
+          role: 'user',
+          content: [
+            { type: 'text', text: messageToSend },
+            { type: 'image_url', image_url: { url: imageToSend } }
+          ] as any
+        };
+      }
+
       // Call AI
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`, {
         method: 'POST',
@@ -183,7 +196,7 @@ const AIChat = ({ conversationId: propsConversationId }: AIChatProps) => {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
-        body: JSON.stringify({ messages: [...messages, userMessage] }),
+        body: JSON.stringify({ messages: messagesToSend }),
       });
 
       if (!response.ok) {

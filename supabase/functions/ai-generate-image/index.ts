@@ -11,11 +11,22 @@ serve(async (req) => {
   }
 
   try {
-    const { prompt } = await req.json();
+    const { prompt, image } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     
     if (!LOVABLE_API_KEY) {
       throw new Error('LOVABLE_API_KEY is not configured');
+    }
+
+    // Prepare message content - if image is provided, use multimodal format
+    let messageContent;
+    if (image) {
+      messageContent = [
+        { type: 'text', text: prompt },
+        { type: 'image_url', image_url: { url: image } }
+      ];
+    } else {
+      messageContent = prompt;
     }
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
@@ -29,7 +40,7 @@ serve(async (req) => {
         messages: [
           {
             role: 'user',
-            content: prompt
+            content: messageContent
           }
         ],
         modalities: ['image', 'text']

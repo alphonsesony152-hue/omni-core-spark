@@ -108,18 +108,24 @@ const AIGenerate = () => {
 
     try {
       const stylePrefix = style !== "realistic" ? `${style} style: ` : "";
-      const fullPrompt = `${stylePrefix}${prompt}`;
+      const fullPrompt = selectedImage 
+        ? `Transform this image to ${stylePrefix}${prompt}` 
+        : `${stylePrefix}${prompt}`;
       
       const { data, error } = await supabase.functions.invoke('ai-generate-image', {
-        body: { prompt: fullPrompt },
+        body: { 
+          prompt: fullPrompt,
+          image: selectedImage 
+        },
       });
 
       if (error) throw error;
 
       if (data?.imageUrl) {
         setGeneratedImage(data.imageUrl);
+        setSelectedImage(null);
         toast({
-          title: "Image generated!",
+          title: selectedImage ? "Image transformed!" : "Image generated!",
           description: "Your AI-generated image is ready.",
         });
       }
@@ -174,7 +180,7 @@ const AIGenerate = () => {
 
         <div>
           <label htmlFor="prompt" className="block text-sm font-medium mb-2">
-            Describe what you want to generate
+            {selectedImage ? "Describe how to transform the image" : "Describe what you want to generate"}
           </label>
           <div className="flex gap-2">
             <DropdownMenu>
