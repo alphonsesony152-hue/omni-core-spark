@@ -17,22 +17,30 @@ type Message = {
   content: string;
 };
 
-const AIChat = () => {
+type AIChatProps = {
+  conversationId?: string | null;
+};
+
+const AIChat = ({ conversationId: propsConversationId }: AIChatProps) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [conversationId, setConversationId] = useState<string | null>(propsConversationId || null);
   const [isRecording, setIsRecording] = useState(false);
-  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  const recognitionRef = useRef<any>(null);
   const { toast } = useToast();
 
   useEffect(() => {
-    // Create new conversation on mount
-    createConversation();
-  }, []);
+    if (propsConversationId) {
+      loadConversation(propsConversationId);
+    } else {
+      createConversation();
+    }
+  }, [propsConversationId]);
 
   useEffect(() => {
     scrollToBottom();
@@ -41,6 +49,22 @@ const AIChat = () => {
   const scrollToBottom = () => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  };
+
+  const loadConversation = async (id: string) => {
+    try {
+      setConversationId(id);
+      const { data, error } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('conversation_id', id)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+      setMessages(data.map(msg => ({ role: msg.role as 'user' | 'assistant', content: msg.content })));
+    } catch (error: any) {
+      console.error('Error loading conversation:', error);
     }
   };
 
@@ -66,50 +90,70 @@ const AIChat = () => {
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      toast({
-        title: "Image selected",
-        description: "Image attachments will be supported soon!",
-      });
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setSelectedImage(reader.result as string);
+        toast({
+          title: "Image attached",
+          description: "Image ready to send with your message",
+        });
+      };
+      reader.readAsDataURL(file);
     }
   };
 
-  const startVoiceRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream);
-      const audioChunks: Blob[] = [];
-
-      recorder.ondataavailable = (event) => {
-        audioChunks.push(event.data);
-      };
-
-      recorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-        // Convert to text (simplified - you'd use a speech-to-text service)
-        toast({
-          title: "Voice recorded",
-          description: "Voice transcription will be added soon!",
-        });
-        stream.getTracks().forEach(track => track.stop());
-      };
-
-      recorder.start();
-      setMediaRecorder(recorder);
-      setIsRecording(true);
-    } catch (error) {
+  const startVoiceRecording = () => {
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
       toast({
-        title: "Error",
-        description: "Could not access microphone",
+        title: "Not supported",
+        description: "Speech recognition is not supported in your browser",
         variant: "destructive",
       });
+      return;
     }
+
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = 'en-US';
+
+    recognition.onstart = () => {
+      setIsRecording(true);
+    };
+
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      setInput(prev => prev + (prev ? ' ' : '') + transcript);
+      toast({
+        title: "Voice captured",
+        description: "Your speech has been converted to text",
+      });
+    };
+
+    recognition.onerror = (event: any) => {
+      console.error('Speech recognition error:', event.error);
+      setIsRecording(false);
+      toast({
+        title: "Error",
+        description: "Could not recognize speech. Please try again.",
+        variant: "destructive",
+      });
+    };
+
+    recognition.onend = () => {
+      setIsRecording(false);
+    };
+
+    recognitionRef.current = recognition;
+    recognition.start();
   };
 
   const stopVoiceRecording = () => {
-    if (mediaRecorder && isRecording) {
-      mediaRecorder.stop();
+    if (recognitionRef.current && isRecording) {
+      recognitionRef.current.stop();
       setIsRecording(false);
-      setMediaRecorder(null);
     }
   };
 
@@ -118,7 +162,10 @@ const AIChat = () => {
 
     const userMessage: Message = { role: 'user', content: input };
     setMessages(prev => [...prev, userMessage]);
+    const messageToSend = input;
+    const imageToSend = selectedImage;
     setInput("");
+    setSelectedImage(null);
     setLoading(true);
 
     try {
@@ -126,7 +173,7 @@ const AIChat = () => {
       await supabase.from('messages').insert({
         conversation_id: conversationId,
         role: 'user',
-        content: input,
+        content: messageToSend,
       });
 
       // Call AI
@@ -299,13 +346,29 @@ const AIChat = () => {
             {isRecording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
           </Button>
 
-          <Input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Type your message..."
-            disabled={loading}
-            className="flex-1"
-          />
+          <div className="flex-1 flex flex-col gap-2">
+            {selectedImage && (
+              <div className="relative inline-block">
+                <img src={selectedImage} alt="Attached" className="h-20 rounded border" />
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="icon"
+                  className="absolute -top-2 -right-2 h-6 w-6 rounded-full"
+                  onClick={() => setSelectedImage(null)}
+                >
+                  ×
+                </Button>
+              </div>
+            )}
+            <Input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Type your message..."
+              disabled={loading}
+              className="w-full"
+            />
+          </div>
           <Button
             type="submit"
             disabled={loading || !input.trim()}

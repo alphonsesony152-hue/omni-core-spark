@@ -24,57 +24,79 @@ const AIGenerate = () => {
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [style, setStyle] = useState<string>("realistic");
   const [isRecording, setIsRecording] = useState(false);
-  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  const recognitionRef = useRef<any>(null);
   const { toast } = useToast();
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      toast({
-        title: "Image selected",
-        description: "Image reference will be supported soon!",
-      });
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setSelectedImage(reader.result as string);
+        toast({
+          title: "Image attached",
+          description: "Reference image for generation",
+        });
+      };
+      reader.readAsDataURL(file);
     }
   };
 
-  const startVoiceRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream);
-      const audioChunks: Blob[] = [];
-
-      recorder.ondataavailable = (event) => {
-        audioChunks.push(event.data);
-      };
-
-      recorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-        toast({
-          title: "Voice recorded",
-          description: "Voice-to-text will be added soon!",
-        });
-        stream.getTracks().forEach(track => track.stop());
-      };
-
-      recorder.start();
-      setMediaRecorder(recorder);
-      setIsRecording(true);
-    } catch (error) {
+  const startVoiceRecording = () => {
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
       toast({
-        title: "Error",
-        description: "Could not access microphone",
+        title: "Not supported",
+        description: "Speech recognition is not supported in your browser",
         variant: "destructive",
       });
+      return;
     }
+
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = 'en-US';
+
+    recognition.onstart = () => {
+      setIsRecording(true);
+    };
+
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      setPrompt(prev => prev + (prev ? ' ' : '') + transcript);
+      toast({
+        title: "Voice captured",
+        description: "Your speech has been converted to text",
+      });
+    };
+
+    recognition.onerror = (event: any) => {
+      console.error('Speech recognition error:', event.error);
+      setIsRecording(false);
+      toast({
+        title: "Error",
+        description: "Could not recognize speech. Please try again.",
+        variant: "destructive",
+      });
+    };
+
+    recognition.onend = () => {
+      setIsRecording(false);
+    };
+
+    recognitionRef.current = recognition;
+    recognition.start();
   };
 
   const stopVoiceRecording = () => {
-    if (mediaRecorder && isRecording) {
-      mediaRecorder.stop();
+    if (recognitionRef.current && isRecording) {
+      recognitionRef.current.stop();
       setIsRecording(false);
-      setMediaRecorder(null);
     }
   };
 
@@ -200,19 +222,35 @@ const AIGenerate = () => {
               {isRecording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
             </Button>
 
-            <Input
-              id="prompt"
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              placeholder="A professional logo with modern design..."
-              disabled={loading}
-              className="flex-1"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !loading && prompt.trim()) {
-                  generateImage();
-                }
-              }}
-            />
+            <div className="flex-1 flex flex-col gap-2">
+              {selectedImage && (
+                <div className="relative inline-block">
+                  <img src={selectedImage} alt="Reference" className="h-20 rounded border" />
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="icon"
+                    className="absolute -top-2 -right-2 h-6 w-6 rounded-full"
+                    onClick={() => setSelectedImage(null)}
+                  >
+                    ×
+                  </Button>
+                </div>
+              )}
+              <Input
+                id="prompt"
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                placeholder="A professional logo with modern design..."
+                disabled={loading}
+                className="w-full"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !loading && prompt.trim()) {
+                    generateImage();
+                  }
+                }}
+              />
+            </div>
           </div>
         </div>
 
