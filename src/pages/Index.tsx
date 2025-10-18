@@ -25,11 +25,10 @@ const Index = () => {
           <div className="flex justify-center pt-8">
             <Button
               size="lg"
-              variant="outline"
-              onClick={() => navigate("/login")}
-              className="text-lg px-8 py-6 h-auto"
+              onClick={() => navigate("/auth")}
+              className="bg-gradient-to-r from-primary to-secondary hover:opacity-90 text-lg px-12 py-6 h-auto"
             >
-              Sign In
+              Get Started
             </Button>
           </div>
         </div>

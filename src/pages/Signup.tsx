@@ -4,32 +4,76 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Sparkles } from "lucide-react";
+import { Sparkles, Upload } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 const Signup = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setAvatarFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setAvatarPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.signUp({
+      const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
         options: {
           data: {
             full_name: fullName,
           },
+          emailRedirectTo: `${window.location.origin}/`,
         },
       });
 
-      if (error) throw error;
+      if (authError) throw authError;
+
+      let avatarUrl = "";
+      
+      // Upload avatar if provided
+      if (avatarFile && authData.user) {
+        const fileExt = avatarFile.name.split('.').pop();
+        const fileName = `${authData.user.id}.${fileExt}`;
+        const { error: uploadError } = await supabase.storage
+          .from('avatars')
+          .upload(fileName, avatarFile, { upsert: true });
+
+        if (uploadError) {
+          console.error("Avatar upload error:", uploadError);
+        } else {
+          const { data: urlData } = supabase.storage
+            .from('avatars')
+            .getPublicUrl(fileName);
+          avatarUrl = urlData.publicUrl;
+        }
+      }
+
+      // Update profile with avatar URL
+      if (avatarUrl && authData.user) {
+        await supabase
+          .from('profiles')
+          .update({ avatar_url: avatarUrl })
+          .eq('id', authData.user.id);
+      }
 
       toast({
         title: "Account created!",
@@ -63,6 +107,30 @@ const Signup = () => {
 
         <div className="bg-card border border-border rounded-2xl p-8 shadow-2xl">
           <form onSubmit={handleSignup} className="space-y-6">
+            <div className="flex justify-center">
+              <div className="relative">
+                <Avatar className="w-24 h-24">
+                  <AvatarImage src={avatarPreview} />
+                  <AvatarFallback className="bg-gradient-to-br from-primary to-secondary text-primary-foreground text-2xl">
+                    {fullName.charAt(0) || "U"}
+                  </AvatarFallback>
+                </Avatar>
+                <label
+                  htmlFor="avatar"
+                  className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-primary hover:bg-primary/90 flex items-center justify-center cursor-pointer shadow-lg"
+                >
+                  <Upload className="w-4 h-4 text-primary-foreground" />
+                  <input
+                    id="avatar"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleAvatarChange}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+            </div>
+
             <div>
               <label htmlFor="fullName" className="block text-sm font-medium mb-2">
                 Full Name
