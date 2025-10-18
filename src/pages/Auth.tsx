@@ -1,23 +1,28 @@
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { Sparkles } from "lucide-react";
+import authHeroImage from "@/assets/auth-hero.png";
 
 const Auth = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-primary/5 to-secondary/5 flex items-center justify-center p-4">
-      <div className="w-full max-w-md text-center space-y-8">
+    <div 
+      className="min-h-screen flex items-center justify-center p-4 bg-cover bg-center bg-no-repeat relative"
+      style={{ backgroundImage: `url(${authHeroImage})` }}
+    >
+      <div className="absolute inset-0 bg-black/20" />
+      <div className="w-full max-w-md text-center space-y-8 relative z-10">
         <div className="space-y-6">
           <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-gradient-to-br from-primary to-secondary mb-4">
             <Sparkles className="w-10 h-10 text-primary-foreground" />
           </div>
           
           <div className="space-y-2">
-            <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+            <h1 className="text-4xl md:text-5xl font-bold text-white drop-shadow-lg">
               XYLOS AI
             </h1>
-            <h2 className="text-2xl md:text-3xl font-bold text-foreground">
+            <h2 className="text-2xl md:text-3xl font-bold text-white drop-shadow-lg">
               FIRST DAY.
               <br />
               NEW LEGACY
